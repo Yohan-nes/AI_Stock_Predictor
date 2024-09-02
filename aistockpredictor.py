@@ -8,7 +8,7 @@ Original file is located at
 """
 
 ## This program uses an artificial recurrent neural network called Long Short Term Memory(LSTM)
-# to predict the closing stock price of a corporation (e.g Apple Inc.) using the past 60 day stock price
+# to predict the closing stock price of a multiple corporations using the past 60 day stock prices of specific corporation
 
 import math
 import pandas_datareader as web
@@ -39,143 +39,167 @@ def _read_one_data(self, url, params):
 
 #Getting stock quote
 import pandas_datareader as web
-
-df = web.DataReader('AAPL', data_source ='stooq', start = '2012-01-01', end = '2019-12-17')
-df.sort_values(by = ['Date'], inplace = True)
-# show the data
-df
+stocks = ['AAPL', 'MSFT', 'GOOG', 'NVDA', 'META', 'AMZN']
+for stock in stocks:
+  print(f"Processing {stock}.")
+  df = web.DataReader(stock, data_source ='stooq', start = '2012-01-01', end = '2019-12-17')
+  df.sort_values(by = ['Date'], inplace = True)
+  # show the data
+  print(df)
 
 # Get number of rows and columns in data set
-df.shape
+for stock in stocks:
+  print(f"Processing {stock}.")
+  print(df.shape)
 
 #Visualize the closing price history
 import matplotlib.pyplot as plt
-plt.figure(figsize = (16,8))
-plt.title('Close Price History')
-plt.plot(df['Close'])
-plt.xlabel('Date', fontsize = 18)
-plt.ylabel('Close Price USD($)', fontsize =18)
-plt.show()
+for stock in stocks:
+  print(f"Processing {stock}.")
+  plt.figure(figsize = (16,8))
+  plt.title('Close Price History')
+  plt.plot(df['Close'])
+  plt.xlabel('Date', fontsize = 18)
+  plt.ylabel('ClosPrice USD($)', fontsize =18)
+  plt.show()
 
 # Create a new dataframe with only the 'Close column
 import math
-data = df.filter(['Close'])
-# Convert the dataframe to a numpy array
-dataset = data.values
-# Get the number of rows to train LSTM model on 80% of data
-training_data_len = math.ceil( len(dataset)  * .8)
-training_data_len
+for stock in stocks:
+  print(f"Processing {stock}.")
+  data = df.filter(['Close'])
+  # Convert the dataframe to a numpy array
+  dataset = data.values
+  # Get the number of rows to train LSTM model on 80% of data
+  training_data_len = math.ceil( len(dataset)  * .8)
+  print(training_data_len)
 
 # Scale the data
 from sklearn.preprocessing import MinMaxScaler
-scaler = MinMaxScaler(feature_range=(0, 1))  # 0 to 1 inclusive
-scaled_data = scaler.fit_transform(dataset)  # computes minimum and maximum value of data set and transforms data based on those two values
-scaled_data
+for stock in stocks:
+  print(f"Processing {stock}.")
+  scaler = MinMaxScaler(feature_range=(0, 1))  # 0 to 1 inclusive
+  scaled_data = scaler.fit_transform(dataset)  # computes minimum and maximum value of data set and transforms data based on those two values
+  print(scaled_data)
 
-#Create the training data set
-#Create the scaled training data set
-train_data = scaled_data[0:training_data_len , :]
-#Split the data into x_train and y_train data sets
-x_train =[]
-y_train = []
+for stock in stocks:
+  print(f"Processing {stock}.")
+  #Create the training data set
+  #Create the scaled training data set
+  train_data = scaled_data[0:training_data_len , :]
+  #Split the data into x_train and y_train data sets
+  x_train =[]
+  y_train = []
 
-for i in range(60, len(train_data)):
-  x_train.append(train_data[i-60:i, 0]) # contain 60 values from  index 0 -5
-  y_train.append(train_data[i, 0]) #contain 61st value, index 60
-  if i <= 61:
-    print(x_train)
-    print(y_train)
-    print()
+  for i in range(60, len(train_data)):
+    x_train.append(train_data[i-60:i, 0]) # contain 60 values from  index 0 -5
+    y_train.append(train_data[i, 0]) #contain 61st value, index 60
+    if i <= 61:
+      print(x_train)
+      print(y_train)
+      print()
 
 # Convert the x_train and y_train to numpy arrays to train LTSM model
 import numpy as np
-x_train = np.array(x_train)
-y_train = np.array(y_train)
+for stock in stocks:
+  x_train = np.array(x_train)
+  y_train = np.array(y_train)
 
 #Reshape the data
-
-x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
-x_train.shape
+for stock in stocks:
+  x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
+  x_train.shape
 
 #Build LSTM model
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, LSTM
-model = Sequential()
-model.add(LSTM(50, return_sequences = True, input_shape= (x_train.shape[1], 1)))
-model.add(LSTM(50, return_sequences= False))
-model.add(Dense(25))
-model.add(Dense(1))
+for stock in stocks:
+  model = Sequential()
+  model.add(LSTM(50, return_sequences = True, input_shape= (x_train.shape[1], 1)))
+  model.add(LSTM(50, return_sequences= False))
+  model.add(Dense(25))
+  model.add(Dense(1))
+  model.compile(optimizer= 'adam', loss = 'mean_squared_error')
+  #Train model
+  model.fit(x_train, y_train, batch_size =1, epochs = 1) # batch size is the total number of training examples present in a batch, the number of epochs is the number of iteration when an entire data set is passed forward and bakcward through a neural network
 
-#Compile the model
-model.compile(optimizer= 'adam', loss = 'mean_squared_error')
-
-#Train model
-model.fit(x_train, y_train, batch_size =1, epochs = 1) # batch size is the total number of training examples present in a batch, the number of epochs is the number of iteration when an entire data set is passed forward and bakcward through a neural network
-
-#Create the testing data set
-#Creating a new array containing scaled values from index
-test_data = scaled_data[training_data_len-60: , :]
-#Creating the data sets x_test and y_test
-x_test = []
-y_test = dataset[training_data_len:, :]
-for i in range(60, len(test_data)):
-  x_test.append(test_data[i-60:i, 0])
+for stock in stocks:
+  #Create the testing data set
+  #Creating a new array containing scaled values from index
+  test_data = scaled_data[training_data_len-60: , :]
+  #Creating the data sets x_test and y_test
+  x_test = []
+  y_test = dataset[training_data_len:, :]
+  for i in range(60, len(test_data)):
+    x_test.append(test_data[i-60:i, 0])
 
 # Covert the data into a numpy array
-x_test = np.array(x_test)
+for stock in stocks:
+  x_test = np.array(x_test)
 
 #Reshape the data
 import numpy as np
-x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
+for stock in stocks:
+  x_test = np.reshape(x_test, (x_test.shape[0], x_test.shape[1], 1))
 
 # Get the models predicted price values
-predictions = model.predict(x_test)
-predictions = scaler.inverse_transform(predictions) # want predictions to contain same values as y_test dataset
+for stock in stocks:
+  predictions = model.predict(x_test)
+  predictions = scaler.inverse_transform(predictions) # want predictions to contain same values as y_test dataset
 
 # Get the root mean squared error (RMSE), a good meausre of how models predicts a response, a lower value indicates a better fit
-rmse = np.sqrt(np.mean(((predictions - y_test)**2)))
-rmse
+for stock in stocks:
+  print(f"Processing {stock}.")
+  rmse = np.sqrt(np.mean(((predictions - y_test)**2)))
+  print(rmse)
 
-#Plot the data
-train = data[:training_data_len]
-valid = data[training_data_len:]
-valid['Predictions'] = predictions
-#visualize the data
-plt.figure(figsize= (16,8))
-plt.title('Model')
-plt.xlabel('Data', fontsize = 18)
-plt.ylabel('Close Price USD($)', fontsize =18)
-plt.plot(train['Close'])
-plt.plot(valid[['Close', 'Predictions']])
-plt.legend(['Train', 'Val', 'Predictions'], loc = 'lower right')
-plt.show()
+for stock in stocks:
+  print(f"Processing {stock}.")
+  #Plot the data
+  train = data[:training_data_len]
+  valid = data[training_data_len:]
+  valid['Predictions'] = predictions
+  #visualize the data
+  plt.figure(figsize= (16,8))
+  plt.title('Model')
+  plt.xlabel('Data', fontsize = 18)
+  plt.ylabel('Close Price USD($)', fontsize =18)
+  plt.plot(train['Close'])
+  plt.plot(valid[['Close', 'Predictions']])
+  plt.legend(['Train', 'Val', 'Predictions'], loc = 'lower right')
+  plt.show()
 
 # Show the valid and predicted prices of stock price
-valid
+for stock in stocks:
+  print(f"Processing {stock}.")
+  print(valid)
 
-# Get the quote
-apple_quote = web.DataReader('AAPL', data_source ='stooq', start = '2012-01-01', end = '2019-12-17')
-# Create a new data frame
-new_df = apple_quote.filter(['Close'])
-new_df.sort_values(by = ['Date'], inplace = True)
-#Get the last 60 day closing prices values and convert dataframe into an array
-last_60_days = new_df[-60:].values
-#Scale the data to be values between 0 and 1
-last_60_days_scaled = scaler.transform(last_60_days)
-#Create an empty list
-X_test = []
-#Append the past 60 days
-X_test.append(last_60_days_scaled)
-#Convert x_test data set to a numpy array
-X_test = np.array(X_test)
-# Reshape the data
-X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
-# Get the predicted scaled price
-pred_price = model.predict(X_test)
-#undo the scaling
-pred_price = scaler.inverse_transform(pred_price)
-print(pred_price)
 
-# Get the actual price
-apple_quote2 = web.DataReader('AAPL', data_source ='stooq', start = '2019-12-18', end = '2019-12-18')
-print(apple_quote2['Close'])
+for stock in stocks:
+  print(f"Processing {stock}.")
+  # Get the quote
+  stock_quote = web.DataReader(stock, data_source ='stooq', start = '2012-01-01', end = '2019-12-17')
+  # Create a new data frame
+  new_df = stock_quote.filter(['Close'])
+  new_df.sort_values(by = ['Date'], inplace = True)
+  #Get the last 60 day closing prices values and convert dataframe into an array
+  last_60_days = new_df[-60:].values
+  #Scale the data to be values between 0 and 1
+  last_60_days_scaled = scaler.transform(last_60_days)
+  #Create an empty list
+  X_test = []
+  #Append the past 60 days
+  X_test.append(last_60_days_scaled)
+  #Convert x_test data set to a numpy array
+  X_test = np.array(X_test)
+  # Reshape the data
+  X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1], 1))
+  # Get the predicted scaled price
+  pred_price = model.predict(X_test)
+  #undo the scaling
+  pred_price = scaler.inverse_transform(pred_price)
+  print(f"Predicting Closing price: {pred_price}")
+  # Get the actual price
+  stock_quote2 = web.DataReader(stock, data_source ='stooq', start = '2019-12-18', end = '2019-12-18')
+  actual_price = stock_quote2['Close'].values[0] # Extracting the single closing price value
+  print(f"Actual Closing Price: {actual_price}")
